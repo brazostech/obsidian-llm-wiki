@@ -24,6 +24,7 @@ export const IngestApp: React.FC<Props> = ({ plugin, onEnterChat, onBackToOvervi
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isProposing, setIsProposing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const messagesRef = useRef<ChatMessage[]>([]);
   const sessionManager = useRef(new SessionManager(plugin.app));
 
@@ -61,6 +62,7 @@ export const IngestApp: React.FC<Props> = ({ plugin, onEnterChat, onBackToOvervi
     messagesRef.current = [];
     setProposal(null);
     setIsLoading(false);
+    setRefreshKey((k) => k + 1); // force SourceSelector to re-scan sessions
     onBackToOverview?.();
   }, [onBackToOverview]);
 
@@ -246,7 +248,7 @@ export const IngestApp: React.FC<Props> = ({ plugin, onEnterChat, onBackToOvervi
   return (
     <div className="llm-wiki-ingest-app">
       {phase === "SELECT" && (
-        <SourceSelector plugin={plugin} onSelect={handleSourceSelected} />
+        <SourceSelector plugin={plugin} onSelect={handleSourceSelected} refreshKey={refreshKey} />
       )}
       {phase === "CHAT" && (
         <ChatPanel

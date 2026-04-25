@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { requestUrl } from "obsidian";
 import { WikiReader } from "../wiki/reader";
 import { WikiWriter } from "../wiki/writer";
@@ -11,6 +11,7 @@ import LlmWikiPlugin from "../main";
 interface Props {
   plugin: LlmWikiPlugin;
   onSelect: (path: string, content: string) => void;
+  refreshKey?: number;
 }
 
 const DEFAULT_URL_STEPS: Step[] = [
@@ -86,7 +87,7 @@ function formatTimeAgo(timestamp: number): string {
   return `${days}d ago`;
 }
 
-export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
+export const SourceSelector: React.FC<Props> = ({ plugin, onSelect, refreshKey = 0 }) => {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [selectedPreview, setSelectedPreview] = useState<string>("");
@@ -99,6 +100,12 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [urlSteps, setUrlSteps] = useState<Step[]>(DEFAULT_URL_STEPS);
   const [isLoadingFiles, setIsLoadingFiles] = useState(true);
+
+  // Keep a ref to the latest onSelect so setTimeout closures are never stale
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
 
   useEffect(() => {
     const loadRecent = async () => {
@@ -133,7 +140,7 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
       }
     };
     loadRecent();
-  }, [plugin]);
+  }, [plugin, refreshKey]);
 
   const handleSelectFile = async (path: string) => {
     setSelectedFile(path);
@@ -225,7 +232,8 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
       await writer.createFile(path, markdown);
       updateStep("save", "complete", path);
 
-      setTimeout(() => onSelect(path, markdown), 400);
+      // Transition immediately to ingestion chat
+      onSelectRef.current(path, markdown);
     } catch (e: any) {
       const failedStep =
         urlSteps.find((s) => s.status === "active")?.id || "fetch";

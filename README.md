@@ -92,9 +92,9 @@ src/
 2. **URL fetch truncates at ~150KB.** Very large HTML pages are truncated before sending to the LLM to avoid context limit errors.
 3. **Index updates are naive.** The APPLY phase searches for `## Section` headers in `index.md` and inserts entries immediately after. It cannot create missing sections or handle complex index restructuring.
 4. **UPDATE actions overwrite entire files.** The LLM generates the full file content for UPDATE actions, replacing the existing page. There's no "append" or "patch" semantics — the LLM must include all existing content it wants to preserve.
-5. **Session persistence is partial.** Sessions save to `.llm-wiki/sessions/` but session badges in the file list don't auto-refresh after an ingestion completes. The list shows stale "no session" state until the sidebar is reopened.
-6. **Query and Lint are placeholders.** The UI sections exist but are not yet functional.
-7. **Large source documents slow the initial greeting.** The first LLM call on entering CHAT includes the full source content. For very large files (>100KB), this can take 10-30 seconds before the greeting appears.
+5. **Query and Lint are placeholders.** The UI sections exist but are not yet functional.
+6. **Large source documents slow the initial greeting.** The first LLM call on entering CHAT includes the full source content. For very large files (>100KB), this can take 10-30 seconds before the greeting appears.
+7. **Session resume lacks wiki awareness.** When resuming a session, the LLM only sees the source + conversation history, not what wiki pages were previously created. It may propose duplicate CREATEs instead of UPDATEs.
 
 ## Installation
 

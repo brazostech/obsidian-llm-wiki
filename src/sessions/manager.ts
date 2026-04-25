@@ -21,8 +21,13 @@ export class SessionManager {
 
   async ensureDir(): Promise<void> {
     const dir = this.app.vault.getAbstractFileByPath(SESSION_DIR);
-    if (!dir) {
+    if (dir instanceof TFolder) return;
+    try {
       await this.app.vault.createFolder(SESSION_DIR);
+    } catch (e: any) {
+      // Obsidian throws "Folder already exists" if it exists but wasn't in cache
+      if (e.message?.includes("already exists")) return;
+      throw e;
     }
   }
 
@@ -40,6 +45,7 @@ export class SessionManager {
     } else {
       await this.app.vault.create(path, data);
     }
+    console.log("[LLM Wiki] Session saved:", session.sourcePath, "messages:", session.messages.length, "phase:", session.phase);
   }
 
   async load(sourcePath: string): Promise<IngestSession | null> {
@@ -48,12 +54,15 @@ export class SessionManager {
     if (file instanceof TFile) {
       try {
         const text = await this.app.vault.read(file);
-        return JSON.parse(text) as IngestSession;
+        const session = JSON.parse(text) as IngestSession;
+        console.log("[LLM Wiki] Session loaded:", sourcePath, "messages:", session.messages.length, "phase:", session.phase);
+        return session;
       } catch (e) {
         console.error("[LLM Wiki] Failed to load session:", e);
         return null;
       }
     }
+    console.log("[LLM Wiki] No session file found for:", sourcePath);
     return null;
   }
 

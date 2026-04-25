@@ -77,6 +77,7 @@ IngestApp (React)
 - File naming: hash of source path (filesystem-safe)
 - Schema: `{ sourcePath, sourceContent, phase, messages, proposal, createdAt, updatedAt }`
 - `cleanup(limit=5)` evicts oldest sessions beyond the N most recent by `updatedAt`
+- `ensureDir()` handles Obsidian's "Folder already exists" error gracefully (the folder may exist but not be in the vault cache)
 
 **Auto-save** (`IngestApp.tsx`)
 - A `useEffect` watches `messages`, `phase`, and `proposal` — saves after every state change
@@ -85,9 +86,12 @@ IngestApp (React)
 **Resume flow**
 - When a source with a saved session is selected, `handleSourceSelected` loads the session and jumps directly to `CHAT` phase with restored messages
 - Skips greeting generation entirely
-- The LLM has full conversation history, so re-proposing naturally generates UPDATE actions rather than duplicate CREATEs
+- The LLM has full conversation history, but **does not** know what wiki pages were previously created (this is a known limitation — see below)
 
-**Known issue:** `SourceSelector` only checks for sessions on initial mount. After completing an ingestion and returning to SELECT, the file list may still show "Ingest this source" instead of "Discuss & Update" until the sidebar is reopened. Session was saved — the UI just hasn't refreshed.
+**UI refresh**
+- `SourceSelector` receives a `refreshKey` prop that increments when `IngestApp` returns to SELECT phase
+- This forces `useEffect` to re-run, re-scanning files and checking for new sessions
+- Session badges and "Discuss & Update" button update immediately after an ingestion completes
 
 ### LLM Layer
 
@@ -219,11 +223,11 @@ The esbuild config bundles React, ai-sdk, and Zod into a single `main.js`. Exter
 
 ### Polish
 
-9. **Error recovery.** If proposal generation fails, the user is stuck in CHAT with an alert. Should show the error inline in the chat and allow retry.
+10. **Error recovery.** If proposal generation fails, the user is stuck in CHAT with an alert. Should show the error inline in the chat and allow retry.
 
-10. **Keyboard shortcuts.** Cmd+Enter to send in chat. Escape to cancel proposing.
+11. **Keyboard shortcuts.** Cmd+Enter to send in chat. Escape to cancel proposing.
 
-11. **Mobile support.** `requestUrl()` works on mobile, but the sidebar UI may need responsive tweaks.
+12. **Mobile support.** `requestUrl()` works on mobile, but the sidebar UI may need responsive tweaks.
 
 ## Adding a New Feature
 
