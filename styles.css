@@ -1,5 +1,74 @@
 /* Obsidian-native themed LLM Wiki plugin styles */
 
+.llm-wiki-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 8px;
+  padding: 8px;
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+  background: var(--background-primary);
+}
+
+.llm-wiki-section {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  overflow: hidden;
+}
+
+.llm-wiki-section-ingest {
+  flex: 1;
+}
+
+.llm-wiki-ingest-active {
+  flex: 1;
+  border: none;
+}
+
+.llm-wiki-hidden {
+  display: none !important;
+}
+
+.llm-wiki-section-header {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+
+.llm-wiki-section-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.llm-wiki-query-compact,
+.llm-wiki-lint-strip {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.llm-wiki-query-compact textarea,
+.llm-wiki-lint-strip button {
+  width: 100%;
+}
+
+.llm-wiki-hint {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
 .llm-wiki-ingest-app {
   padding: 12px;
   font-size: var(--font-ui-small);
@@ -72,6 +141,69 @@
   background: var(--interactive-accent);
   color: var(--text-on-accent);
   border-color: var(--interactive-accent);
+}
+
+.llm-wiki-file-item.selected .llm-wiki-file-item-meta {
+  color: var(--text-on-accent);
+  opacity: 0.8;
+}
+
+.llm-wiki-session-badge {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.llm-wiki-file-item.selected .llm-wiki-session-badge {
+  color: var(--text-on-accent);
+  opacity: 0.7;
+}
+
+.llm-wiki-session-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+}
+
+.llm-wiki-session-meta div:first-child {
+  font-weight: 500;
+}
+
+.llm-wiki-session-meta div:last-child {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.llm-wiki-recent-header {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 8px;
+  margin-bottom: 4px;
+}
+
+.llm-wiki-file-item-title {
+  font-weight: 500;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.llm-wiki-file-item-meta {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .llm-wiki-file-preview {

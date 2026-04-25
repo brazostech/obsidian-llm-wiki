@@ -4,6 +4,8 @@ import { WikiReader } from "../wiki/reader";
 import { WikiWriter } from "../wiki/writer";
 import { processUrlWithLlm } from "../ai/url-process";
 import { ProgressSteps, Step } from "./ProgressSteps";
+import { parseFrontmatter } from "../wiki/frontmatter";
+import { SessionManager } from "../sessions/manager";
 import LlmWikiPlugin from "../main";
 
 interface Props {
@@ -17,23 +19,120 @@ const DEFAULT_URL_STEPS: Step[] = [
   { id: "save", label: "Saving to vault", status: "pending" },
 ];
 
+interface RecentFile {
+  path: string;
+  title: string;
+  filename: string;
+  hasSession: boolean;
+  messageCount: number;
+  lastActive: number | null;
+}
+
+function extractTitleFromRawFrontmatter(content: string): string | null {
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (!fmMatch) return null;
+  const titleMatch = fmMatch[1].match(/^title:\s*(.+)$/m);
+  if (titleMatch) {
+    let title = titleMatch[1].trim();
+    if (
+      (title.startsWith('"') && title.endsWith('"')) ||
+      (title.startsWith("'") && title.endsWith("'"))
+    ) {
+      title = title.slice(1, -1);
+    }
+    return title;
+  }
+  return null;
+}
+
+function extractTitle(content: string, basename: string): string {
+  try {
+    const { frontmatter, body } = parseFrontmatter(content);
+    if (frontmatter.title && typeof frontmatter.title === "string") {
+      return frontmatter.title;
+    }
+    const h1Match = body.match(/^#\s+(.+)$/m);
+    if (h1Match) {
+      return h1Match[1].trim();
+    }
+  } catch (e: any) {
+    console.warn(
+      "[LLM Wiki] Strict frontmatter parse failed, trying regex fallback:",
+      e.message
+    );
+  }
+
+  const rawTitle = extractTitleFromRawFrontmatter(content);
+  if (rawTitle) {
+    return rawTitle;
+  }
+
+  const h1Match = content.match(/^#\s+(.+)$/m);
+  if (h1Match) {
+    return h1Match[1].trim();
+  }
+
+  return basename;
+}
+
+function formatTimeAgo(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
-  const [files, setFiles] = useState<string[]>([]);
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [selectedPreview, setSelectedPreview] = useState<string>("");
+  const [selectedHasSession, setSelectedHasSession] = useState(false);
+  const [selectedMessageCount, setSelectedMessageCount] = useState(0);
+  const [selectedLastActive, setSelectedLastActive] = useState<number | null>(null);
   const [tab, setTab] = useState<"file" | "paste" | "url">("file");
   const [pasteContent, setPasteContent] = useState("");
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [urlSteps, setUrlSteps] = useState<Step[]>(DEFAULT_URL_STEPS);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(true);
 
   useEffect(() => {
-    const reader = new WikiReader(
-      plugin.app,
-      plugin.settings.rawPath,
-      plugin.settings.wikiPath
-    );
-    reader.listRawFiles().then(setFiles);
+    const loadRecent = async () => {
+      try {
+        const reader = new WikiReader(
+          plugin.app,
+          plugin.settings.rawPath,
+          plugin.settings.wikiPath
+        );
+        const sessionManager = new SessionManager(plugin.app);
+        const recent = await reader.listRecentRawFiles(5);
+        const enriched = await Promise.all(
+          recent.map(async (f) => {
+            const content = (await reader.readFile(f.path)) || "";
+            const title = extractTitle(content, f.basename);
+            const session = await sessionManager.load(f.path);
+            return {
+              path: f.path,
+              title,
+              filename: f.basename,
+              hasSession: !!session,
+              messageCount: session?.messages?.length || 0,
+              lastActive: session?.updatedAt || null,
+            };
+          })
+        );
+        setRecentFiles(enriched);
+      } catch (e: any) {
+        console.error("[LLM Wiki] Failed to load recent files:", e);
+      } finally {
+        setIsLoadingFiles(false);
+      }
+    };
+    loadRecent();
   }, [plugin]);
 
   const handleSelectFile = async (path: string) => {
@@ -43,10 +142,21 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
       plugin.settings.rawPath,
       plugin.settings.wikiPath
     );
+    const sessionManager = new SessionManager(plugin.app);
     const content = await reader.readFile(path);
-    if (content !== null) {
-      // Show first 500 chars as preview
-      setSelectedPreview(content.slice(0, 500));
+    const session = await sessionManager.load(path);
+    if (session) {
+      setSelectedHasSession(true);
+      setSelectedMessageCount(session.messages?.length || 0);
+      setSelectedLastActive(session.updatedAt || null);
+      setSelectedPreview("");
+    } else {
+      setSelectedHasSession(false);
+      setSelectedMessageCount(0);
+      setSelectedLastActive(null);
+      if (content !== null) {
+        setSelectedPreview(content.slice(0, 500));
+      }
     }
   };
 
@@ -81,16 +191,20 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
   const handleFetchUrl = async () => {
     if (!url.trim()) return;
     setIsLoading(true);
-    setUrlSteps(DEFAULT_URL_STEPS.map((s) => ({ ...s, status: "pending" as const })));
+    setUrlSteps(
+      DEFAULT_URL_STEPS.map((s) => ({ ...s, status: "pending" as const }))
+    );
 
     try {
-      // Step 1: Fetch raw HTML
       updateStep("fetch", "active");
       const response = await requestUrl({ url: url.trim(), method: "GET" });
       const html = response.text;
-      updateStep("fetch", "complete", `${html.length.toLocaleString()} chars received`);
+      updateStep(
+        "fetch",
+        "complete",
+        `${html.length.toLocaleString()} chars received`
+      );
 
-      // Step 2: Send to LLM for intelligent extraction & markdown conversion
       updateStep("process", "active");
       const markdown = await processUrlWithLlm(
         html,
@@ -98,9 +212,12 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
         plugin.settings.model,
         plugin.settings.zenApiKey
       );
-      updateStep("process", "complete", `${markdown.length.toLocaleString()} chars extracted`);
+      updateStep(
+        "process",
+        "complete",
+        `${markdown.length.toLocaleString()} chars extracted`
+      );
 
-      // Step 3: Save LLM-produced markdown to raw/
       updateStep("save", "active");
       const slug = `fetched-${Date.now()}`;
       const path = `${plugin.settings.rawPath}/${slug}.md`;
@@ -108,15 +225,17 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
       await writer.createFile(path, markdown);
       updateStep("save", "complete", path);
 
-      // Small delay so user sees the final checkmark before transition
       setTimeout(() => onSelect(path, markdown), 400);
     } catch (e: any) {
-      const failedStep = urlSteps.find((s) => s.status === "active")?.id || "fetch";
+      const failedStep =
+        urlSteps.find((s) => s.status === "active")?.id || "fetch";
       updateStep(failedStep, "error", e.message);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const selectedFileData = recentFiles.find((f) => f.path === selectedFile);
 
   return (
     <div className="llm-wiki-source-selector">
@@ -142,30 +261,53 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
       </div>
       {tab === "file" && (
         <div className="llm-wiki-file-browser">
+          <div className="llm-wiki-recent-header">Recently Ingested</div>
           <div className="llm-wiki-file-list">
-            {files.length === 0 && (
+            {isLoadingFiles && <div>Loading...</div>}
+            {!isLoadingFiles && recentFiles.length === 0 && (
               <div>No files found in {plugin.settings.rawPath}</div>
             )}
-            {files.map((f) => (
+            {recentFiles.map((f) => (
               <div
-                key={f}
-                className={`llm-wiki-file-item ${selectedFile === f ? "selected" : ""}`}
-                onClick={() => handleSelectFile(f)}
+                key={f.path}
+                className={`llm-wiki-file-item ${selectedFile === f.path ? "selected" : ""}`}
+                onClick={() => handleSelectFile(f.path)}
               >
-                {f.replace(`${plugin.settings.rawPath}/`, "")}
+                <div className="llm-wiki-file-item-title">{f.title}</div>
+                <div className="llm-wiki-file-item-meta">
+                  {f.filename}.md
+                  {f.hasSession && (
+                    <span className="llm-wiki-session-badge">
+                      {" "}· {f.messageCount} msgs
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
           {selectedFile && (
             <div className="llm-wiki-file-preview">
-              <h4>{selectedFile.replace(`${plugin.settings.rawPath}/`, "")}</h4>
-              <pre className="llm-wiki-preview-text">{selectedPreview}</pre>
+              {selectedHasSession ? (
+                <div className="llm-wiki-session-meta">
+                  <div>Session saved — {selectedMessageCount} messages</div>
+                  <div>
+                    Last active: {selectedLastActive ? formatTimeAgo(selectedLastActive) : "unknown"}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h4>
+                    {selectedFile.replace(`${plugin.settings.rawPath}/`, "")}
+                  </h4>
+                  <pre className="llm-wiki-preview-text">{selectedPreview}</pre>
+                </>
+              )}
               <button
                 className="llm-wiki-ingest-btn"
                 onClick={handleIngestSelected}
                 disabled={isLoading}
               >
-                Ingest this source
+                {selectedFileData?.hasSession ? "Discuss & Update" : "Ingest this source"}
               </button>
             </div>
           )}
@@ -193,11 +335,8 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect }) => {
             disabled={isLoading}
           />
           {!isLoading && (
-            <button
-              onClick={handleFetchUrl}
-              disabled={!url.trim()}
-            >
-              Fetch & Ingest
+            <button onClick={handleFetchUrl} disabled={!url.trim()}>
+              Fetch &amp; Ingest
             </button>
           )}
           {isLoading && <ProgressSteps steps={urlSteps} />}

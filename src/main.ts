@@ -13,13 +13,13 @@ export default class LlmWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "open-ingest-view",
-      name: "Open Ingest View",
+      name: "Open LLM Wiki",
       callback: () => {
         this.activateIngestView();
       },
     });
 
-    this.addRibbonIcon("brain-circuit", "LLM Wiki Ingest", () => {
+    this.addRibbonIcon("brain-circuit", "LLM Wiki", () => {
       this.activateIngestView();
     });
 

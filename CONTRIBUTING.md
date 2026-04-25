@@ -14,7 +14,7 @@ This is an Obsidian plugin wrapping the [LLM Wiki](https://github.com/jack/llm-w
 
 ```
 main.ts (onload)
-  → registers IngestView (VIEW_TYPE_INGEST = "llm-wiki-ingest")
+  → registers IngestView (VIEW_TYPE_INGEST = "llm-wiki")
   → adds command palette entry + ribbon icon
   → opens sidebar via workspace.getRightLeaf(false)
 
@@ -22,24 +22,35 @@ IngestView (ItemView)
   → mounts React root on this.contentEl
   → unmounts on close
 
+WikiApp (React) — root sidebar layout
+  → Query section (compact placeholder)
+  → Ingest section (flex: 1, embeds IngestApp)
+  → Lint section (compact placeholder)
+
 IngestApp (React)
   → phase state machine: SELECT → CHAT → PROPOSE → APPLY → DONE
+  → session persistence via SessionManager
 ```
 
 ### Phase Details
 
 **SELECT** (`SourceSelector.tsx`)
 - Three tabs: "From raw/" (file list + preview pane), "Paste", "Fetch URL"
-- File selection is two-step: click to select (highlight + preview), then "Ingest this source" button
+- File list shows last 5 recently ingested files with titles extracted from frontmatter/H1/filename
+- Files with saved sessions show a badge: "· N msgs"
+- File selection is two-step: click to select (highlight + preview), then "Ingest this source" or "Discuss & Update" button
+- Preview pane shows session metadata (message count, last active) when a session exists, or raw content preview otherwise
 - URL fetch: `requestUrl()` → raw HTML → `processUrlWithLlm()` → markdown with frontmatter → `WikiWriter.createFile()` → `onSelect()` callback
 - Progress shown via `ProgressSteps` component with per-step spinners and detail text (char counts)
 
 **CHAT** (`ChatPanel.tsx`)
-- Header with "← Back to sources" + "DISCUSSION" label
+- Generic reusable component parameterized via `ChatPanelProps` (used by both Ingest and Query)
+- Header with configurable back label + phase label
 - Markdown-rendered assistant messages via `MarkdownMessage.tsx` (uses Obsidian's `MarkdownRenderer`)
 - User messages are plain text
 - Animated "Thinking..." spinner during LLM calls
-- Animated proposing status bar when `isProposing` is true (replaces input form entirely)
+- Optional `statusOverlay` replaces input entirely (used for "Generating proposal" animation)
+- Optional `actions` React node for extra buttons (used for "Commit & Propose")
 - Input: textarea with Enter-to-send, Shift+Enter for newline
 - "Commit & Propose" disabled until at least 2 messages exist (greeting + 1 exchange minimum)
 
@@ -53,9 +64,30 @@ IngestApp (React)
 - Iterates approved actions, calls `WikiWriter.createFile()` or `modifyFile()`
 - Updates `index.md` via naive section-header insertion
 - Appends to `log.md` in standard format
+- Saves final session state and triggers cleanup (keeps only 5 most recent sessions)
 
 **DONE** (inline in `IngestApp.tsx`)
 - Shows "Ingest complete!" + "Start another ingestion" button that resets state to SELECT
+- On back, returns to the three-section overview
+
+### Session Persistence
+
+**Storage** (`sessions/manager.ts`)
+- Sessions stored as individual JSON files in vault folder `.llm-wiki/sessions/`
+- File naming: hash of source path (filesystem-safe)
+- Schema: `{ sourcePath, sourceContent, phase, messages, proposal, createdAt, updatedAt }`
+- `cleanup(limit=5)` evicts oldest sessions beyond the N most recent by `updatedAt`
+
+**Auto-save** (`IngestApp.tsx`)
+- A `useEffect` watches `messages`, `phase`, and `proposal` — saves after every state change
+- Saves after: greeting generated, each message exchange, proposal generated, apply complete
+
+**Resume flow**
+- When a source with a saved session is selected, `handleSourceSelected` loads the session and jumps directly to `CHAT` phase with restored messages
+- Skips greeting generation entirely
+- The LLM has full conversation history, so re-proposing naturally generates UPDATE actions rather than duplicate CREATEs
+
+**Known issue:** `SourceSelector` only checks for sessions on initial mount. After completing an ingestion and returning to SELECT, the file list may still show "Ingest this source" instead of "Discuss & Update" until the sidebar is reopened. Session was saved — the UI just hasn't refreshed.
 
 ### LLM Layer
 
@@ -166,19 +198,24 @@ The esbuild config bundles React, ai-sdk, and Zod into a single `main.js`. Exter
    - Appending to `sources:` frontmatter list without losing existing entries
    - Using `> [!contradiction]` callouts when new info conflicts
 
-3. **Session persistence.** Save active ingestion session to plugin data so it survives sidebar closes and Obsidian restarts. Store: phase, messages, proposal, sourcePath, sourceContent.
+3. **Session-aware re-ingestion.** When resuming a session, the LLM should know what wiki pages already exist and what was previously created. Currently it only sees the source + chat history, so it may propose duplicate CREATEs. Need to enrich the prompt with:
+   - Existing wiki pages that cite this source (from frontmatter `sources:`)
+   - Prior log entries for this source
+   - Current content of related pages (or at least titles + summaries)
 
 4. **Source size limits.** Very large files (>200KB) should be chunked or summarized before being sent to the LLM. The greeting already truncates to 8KB, but subsequent chat turns send the FULL source every time. This is expensive and slow.
 
 ### Medium Priority
 
-5. **Query phase.** The original CLI has `/query` — answer questions by searching the wiki and synthesizing across pages. Could be a second view or a modal in the same sidebar.
+5. **Query phase implementation.** The UI placeholder exists (textarea + "Ask Wiki" button that opens a fullscreen chat panel). Need to implement the actual `/query` workflow: read `index.md`, identify relevant pages, read them, synthesize an answer with citations, offer to file as a new wiki page.
 
-6. **Lint phase.** The original CLI has `/lint` — health-check contradictions, orphans, stale info. Could be a command palette action that opens a report view.
+6. **Lint phase implementation.** The UI placeholder exists ("Lint Wiki" button). Need to implement the `/lint` workflow: inventory `index.md` vs `wiki/**/*.md`, check contradictions, orphans, missing pages, stale info, frontmatter issues, and index hygiene.
 
 7. **Better URL fetching.** Support recursive fetching (follow links to a depth), fetch GitHub READMEs via API (not raw HTML), extract code repositories as structured data.
 
 8. **Model-specific optimization.** Different models have different strengths. Claude excels at reasoning and following complex prompts; GPT is better at structured JSON; smaller models are faster. The prompt engineering should be model-aware, or at least tested across the supported models.
+
+9. **Tool-calling architecture.** See `TOOLS.md` for design notes on using `ai-sdk` tool calls to let the LLM fetch URLs and read wiki pages autonomously during discussion. Blocked on verifying Zen model support for tool-calling.
 
 ### Polish
 
@@ -199,6 +236,15 @@ If you need a new step in the ingestion flow (e.g., "TAG" between CHAT and PROPO
 3. Create the new component in `src/components/`
 4. Add transition handler in `IngestApp.tsx`
 5. Update CSS in `styles.css` for any new UI patterns
+
+### Pattern: Add a new top-level section
+
+If you need a new major mode alongside Query/Ingest/Lint:
+
+1. Add section rendering in `WikiApp.tsx`
+2. Follow the Query/Lint pattern: compact card in overview, fullscreen view on activation
+3. Use `onEnterChat`-style callbacks to expand the section and hide others
+4. Ensure the section has a "Back" button that returns to overview
 
 ### Pattern: Add a new LLM operation
 

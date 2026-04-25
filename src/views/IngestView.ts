@@ -2,9 +2,9 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import { Root, createRoot } from "react-dom/client";
 import React from "react";
 import LlmWikiPlugin from "../main";
-import { IngestApp } from "../components/IngestApp";
+import { WikiApp } from "../components/WikiApp";
 
-export const VIEW_TYPE_INGEST = "llm-wiki-ingest";
+export const VIEW_TYPE_INGEST = "llm-wiki";
 
 export class IngestView extends ItemView {
   private root: Root | null = null;
@@ -20,13 +20,13 @@ export class IngestView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "LLM Wiki Ingest";
+    return "LLM Wiki";
   }
 
   async onOpen() {
     this.root = createRoot(this.contentEl);
     this.root.render(
-      React.createElement(IngestApp, { plugin: this.plugin })
+      React.createElement(WikiApp, { plugin: this.plugin })
     );
   }
 

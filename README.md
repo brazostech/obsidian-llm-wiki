@@ -21,9 +21,11 @@ src/
 ├── views/
 │   └── IngestView.ts          # ItemView hosting a React root in the sidebar
 ├── components/
+│   ├── WikiApp.tsx            # Root sidebar layout: Query → Ingest → Lint sections
 │   ├── IngestApp.tsx          # Phase state machine (SELECT → CHAT → PROPOSE → APPLY → DONE)
+│   ├── QueryPanel.tsx         # Stub query chat panel (placeholder)
 │   ├── SourceSelector.tsx     # File picker + paste + URL fetch with progress steps
-│   ├── ChatPanel.tsx          # Chat UI with Markdown rendering, animated "proposing" status
+│   ├── ChatPanel.tsx          # Generic reusable chat UI (used by Ingest and Query)
 │   ├── MarkdownMessage.tsx    # Renders assistant messages via Obsidian's MarkdownRenderer
 │   ├── ProposalChecklist.tsx  # Review/approve proposed wiki actions
 │   └── ProgressSteps.tsx      # Step-by-step progress indicator with spinners
@@ -34,10 +36,12 @@ src/
 │   ├── propose.ts             # generateText with hardcoded JSON schema prompt + Zod validation
 │   ├── prompts.ts             # System prompts for chat and proposal phases
 │   └── url-process.ts         # LLM-based HTML-to-markdown conversion for URL fetching
-└── wiki/
-    ├── reader.ts              # Vault read utilities
-    ├── writer.ts              # Vault create/modify/append utilities
-    └── frontmatter.ts         # YAML frontmatter generation/parsing (Obsidian APIs)
+├── wiki/
+│   ├── reader.ts              # Vault read utilities
+│   ├── writer.ts              # Vault create/modify/append utilities
+│   └── frontmatter.ts         # YAML frontmatter generation/parsing (Obsidian APIs)
+└── sessions/
+    └── manager.ts             # Session persistence: save/load ingestion state to .llm-wiki/sessions/
 ```
 
 ### Key Technical Decisions
@@ -63,10 +67,13 @@ src/
 
 ### What Works
 
-- ✅ Source selection from `raw/` with preview pane
+- ✅ Three-section sidebar: Query (placeholder), Ingest (functional), Lint (placeholder)
+- ✅ Source selection from `raw/` with human-readable titles extracted from frontmatter
+- ✅ "Recently Ingested" shows last 5 files with titles and session badges
 - ✅ Paste content (auto-saved to `raw/`)
 - ✅ Fetch URL with LLM-based HTML→markdown conversion and animated progress steps
 - ✅ Chat phase with Obsidian-native markdown rendering for assistant messages
+- ✅ Generic reusable `ChatPanel` shared across Ingest and Query views
 - ✅ LLM-generated greeting when entering chat
 - ✅ Multi-turn conversation with source context prepended to every LLM call
 - ✅ "Commit & Propose" with animated status (cycling phrases + dots)
@@ -74,6 +81,8 @@ src/
 - ✅ Apply approved actions (create pages, update index, append to log)
 - ✅ DONE phase with "Start another ingestion" reset
 - ✅ Back navigation at every phase
+- ✅ Session persistence: auto-saves to `.llm-wiki/sessions/`, survives sidebar closes
+- ✅ "Discuss & Update" button for sources with saved sessions (resumes chat)
 - ✅ Settings: Zen API key, model selector (curated + custom), path configuration
 - ✅ CORS bypass for all LLM calls via `requestUrl()`
 
@@ -83,8 +92,8 @@ src/
 2. **URL fetch truncates at ~150KB.** Very large HTML pages are truncated before sending to the LLM to avoid context limit errors.
 3. **Index updates are naive.** The APPLY phase searches for `## Section` headers in `index.md` and inserts entries immediately after. It cannot create missing sections or handle complex index restructuring.
 4. **UPDATE actions overwrite entire files.** The LLM generates the full file content for UPDATE actions, replacing the existing page. There's no "append" or "patch" semantics — the LLM must include all existing content it wants to preserve.
-5. **No session persistence.** Closing the sidebar or restarting Obsidian loses the current ingestion session. There's no save/resume.
-6. **No query or lint.** The plugin only implements `ingest`. The `/query` and `/lint` CLI commands are not yet exposed in the UI.
+5. **Session persistence is partial.** Sessions save to `.llm-wiki/sessions/` but session badges in the file list don't auto-refresh after an ingestion completes. The list shows stale "no session" state until the sidebar is reopened.
+6. **Query and Lint are placeholders.** The UI sections exist but are not yet functional.
 7. **Large source documents slow the initial greeting.** The first LLM call on entering CHAT includes the full source content. For very large files (>100KB), this can take 10-30 seconds before the greeting appears.
 
 ## Installation
@@ -113,7 +122,7 @@ npm run dev         # watch mode for development
 4. Configure: Settings → Community Plugins → LLM Wiki → Options
    - Paste your OpenCode Zen API key
    - Select a model (Claude Sonnet 4.5 is a good default)
-5. Open the sidebar: Command Palette → "LLM Wiki: Open Ingest View"
+5. Open the sidebar: Command Palette → "LLM Wiki: Open LLM Wiki"
 
 ## Dependencies
 

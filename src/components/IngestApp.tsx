@@ -1,19 +1,22 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import LlmWikiPlugin from "../main";
-import { IngestPhase, ChatMessage } from "../types";
+import { IngestPhase, ChatMessage, IngestSession } from "../types";
 import { SourceSelector } from "./SourceSelector";
-import { ChatPanel } from "./ChatPanel";
+import { ChatPanel, AnimatedProposingStatus } from "./ChatPanel";
 import { ProposalChecklist } from "./ProposalChecklist";
 import { chatResponse, generateGreeting } from "../ai/chat";
 import { generateProposal, Proposal } from "../ai/propose";
 import { WikiReader } from "../wiki/reader";
 import { WikiWriter } from "../wiki/writer";
+import { SessionManager } from "../sessions/manager";
 
 interface Props {
   plugin: LlmWikiPlugin;
+  onEnterChat?: () => void;
+  onBackToOverview?: () => void;
 }
 
-export const IngestApp: React.FC<Props> = ({ plugin }) => {
+export const IngestApp: React.FC<Props> = ({ plugin, onEnterChat, onBackToOverview }) => {
   const [phase, setPhase] = useState<IngestPhase>("SELECT");
   const [sourcePath, setSourcePath] = useState<string | null>(null);
   const [sourceContent, setSourceContent] = useState<string>("");
@@ -22,6 +25,33 @@ export const IngestApp: React.FC<Props> = ({ plugin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isProposing, setIsProposing] = useState(false);
   const messagesRef = useRef<ChatMessage[]>([]);
+  const sessionManager = useRef(new SessionManager(plugin.app));
+
+  const saveSession = useCallback(
+    (overridePhase?: IngestPhase, overrideMessages?: ChatMessage[], overrideProposal?: Proposal | null) => {
+      if (!sourcePath) return;
+      const session: IngestSession = {
+        sourcePath,
+        sourceContent,
+        phase: overridePhase || phase,
+        messages: overrideMessages || messagesRef.current,
+        proposal: overrideProposal !== undefined ? overrideProposal : proposal,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      sessionManager.current.save(session).catch((e) => {
+        console.error("[LLM Wiki] Failed to save session:", e);
+      });
+    },
+    [sourcePath, sourceContent, phase, proposal]
+  );
+
+  // Auto-save whenever messages or phase changes
+  useEffect(() => {
+    if (sourcePath && phase !== "SELECT") {
+      saveSession();
+    }
+  }, [messages, phase, proposal, sourcePath, saveSession]);
 
   const handleBackToSelect = useCallback(() => {
     setPhase("SELECT");
@@ -29,16 +59,30 @@ export const IngestApp: React.FC<Props> = ({ plugin }) => {
     setSourceContent("");
     setMessages([]);
     messagesRef.current = [];
+    setProposal(null);
     setIsLoading(false);
-  }, []);
+    onBackToOverview?.();
+  }, [onBackToOverview]);
 
   const handleSourceSelected = useCallback(
     async (path: string, content: string) => {
       setSourcePath(path);
       setSourceContent(content);
-      setPhase("CHAT");
 
-      // Generate an opening greeting to welcome the user into the conversation
+      const existingSession = await sessionManager.current.load(path);
+      if (existingSession) {
+        // Resume session: restore messages and jump to CHAT
+        setMessages(existingSession.messages);
+        messagesRef.current = existingSession.messages;
+        setProposal(existingSession.proposal);
+        setPhase("CHAT");
+        onEnterChat?.();
+        return;
+      }
+
+      // Fresh ingestion: generate greeting
+      setPhase("CHAT");
+      onEnterChat?.();
       setIsLoading(true);
       try {
         const greeting = await generateGreeting(
@@ -53,6 +97,7 @@ export const IngestApp: React.FC<Props> = ({ plugin }) => {
         };
         setMessages([assistantMsg]);
         messagesRef.current = [assistantMsg];
+        // Session will auto-save via useEffect
       } catch (e: any) {
         const fallbackMsg: ChatMessage = {
           role: "assistant",
@@ -64,7 +109,7 @@ export const IngestApp: React.FC<Props> = ({ plugin }) => {
         setIsLoading(false);
       }
     },
-    [plugin]
+    [plugin, onEnterChat]
   );
 
   const handleSendMessage = useCallback(
@@ -78,7 +123,6 @@ export const IngestApp: React.FC<Props> = ({ plugin }) => {
       setIsLoading(true);
 
       try {
-        // Build LLM messages: source context first, then conversation history
         const llmMessages = [
           {
             role: "user" as const,
@@ -121,7 +165,6 @@ export const IngestApp: React.FC<Props> = ({ plugin }) => {
   const handleCommit = useCallback(async () => {
     setIsProposing(true);
     try {
-      // Build LLM messages with source context included
       const llmMessages = [
         {
           role: "user" as const,
@@ -188,13 +231,16 @@ export const IngestApp: React.FC<Props> = ({ plugin }) => {
           await writer.appendToFile(plugin.settings.logPath, logEntry);
         }
         setPhase("DONE");
+        // Save final state and cleanup old sessions
+        saveSession("DONE", messagesRef.current, proposal);
+        await sessionManager.current.cleanup(5);
       } catch (e: any) {
         alert(`Failed to apply: ${e.message}`);
       } finally {
         setIsLoading(false);
       }
     },
-    [plugin, proposal]
+    [plugin, proposal, saveSession]
   );
 
   return (
@@ -206,10 +252,22 @@ export const IngestApp: React.FC<Props> = ({ plugin }) => {
         <ChatPanel
           messages={messages}
           isLoading={isLoading}
-          isProposing={isProposing}
           onSend={handleSendMessage}
-          onCommit={handleCommit}
           onBack={handleBackToSelect}
+          backLabel="← Back to sources"
+          phaseLabel="Discussion"
+          actions={
+            <button
+              type="button"
+              disabled={isLoading || messages.length < 2}
+              onClick={handleCommit}
+            >
+              Commit &amp; Propose
+            </button>
+          }
+          statusOverlay={
+            isProposing ? <AnimatedProposingStatus /> : undefined
+          }
         />
       )}
       {phase === "PROPOSE" && proposal && (

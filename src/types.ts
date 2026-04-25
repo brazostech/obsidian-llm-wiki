@@ -40,3 +40,13 @@ export interface Proposal {
   indexUpdates: { section: string; entry: string }[];
   logEntry: string;
 }
+
+export interface IngestSession {
+  sourcePath: string;
+  sourceContent: string;
+  phase: IngestPhase;
+  messages: ChatMessage[];
+  proposal: Proposal | null;
+  createdAt: number;
+  updatedAt: number;
+}

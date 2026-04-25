@@ -2,15 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import { ChatMessage } from "../types";
 import { MarkdownMessage } from "./MarkdownMessage";
 
-interface Props {
-  messages: ChatMessage[];
-  isLoading: boolean;
-  isProposing?: boolean;
-  onSend: (text: string) => void;
-  onCommit: () => void;
-  onBack: () => void;
-}
-
 const PROPOSAL_PHRASES = [
   "Generating proposal",
   "Thinking about structure",
@@ -18,7 +9,7 @@ const PROPOSAL_PHRASES = [
   "Preparing checklist",
 ];
 
-const AnimatedProposingStatus: React.FC = () => {
+export const AnimatedProposingStatus: React.FC = () => {
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [dots, setDots] = useState(0);
 
@@ -51,13 +42,30 @@ const AnimatedProposingStatus: React.FC = () => {
   );
 };
 
-export const ChatPanel: React.FC<Props> = ({
+export interface ChatPanelProps {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  onSend: (text: string) => void;
+  onBack: () => void;
+  backLabel?: string;
+  phaseLabel?: string;
+  placeholder?: string;
+  inputDisabled?: boolean;
+  actions?: React.ReactNode;
+  statusOverlay?: React.ReactNode;
+}
+
+export const ChatPanel: React.FC<ChatPanelProps> = ({
   messages,
   isLoading,
-  isProposing = false,
   onSend,
-  onCommit,
   onBack,
+  backLabel = "← Back",
+  phaseLabel = "Discussion",
+  placeholder = "Your commentary...",
+  inputDisabled = false,
+  actions,
+  statusOverlay,
 }) => {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -70,14 +78,10 @@ export const ChatPanel: React.FC<Props> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading || isProposing) return;
+    if (!input.trim() || isLoading || inputDisabled) return;
     onSend(input.trim());
     setInput("");
   };
-
-  const displayMessages = messages.filter(
-    (m) => !(m.role === "user" && m.content.startsWith("Source:"))
-  );
 
   return (
     <div className="llm-wiki-chat-panel">
@@ -86,14 +90,14 @@ export const ChatPanel: React.FC<Props> = ({
           className="llm-wiki-back-btn"
           type="button"
           onClick={onBack}
-          disabled={isLoading || isProposing}
+          disabled={isLoading}
         >
-          &larr; Back to sources
+          {backLabel}
         </button>
-        <span className="llm-wiki-phase-label">Discussion</span>
+        <span className="llm-wiki-phase-label">{phaseLabel}</span>
       </div>
       <div className="llm-wiki-chat-messages" ref={scrollRef}>
-        {displayMessages.map((m, i) => (
+        {messages.map((m, i) => (
           <div
             key={i}
             className={`llm-wiki-message llm-wiki-message-${m.role}`}
@@ -114,17 +118,18 @@ export const ChatPanel: React.FC<Props> = ({
           </div>
         )}
       </div>
-      {isProposing ? (
+      {statusOverlay ? (
         <div className="llm-wiki-chat-input llm-wiki-chat-input-proposing">
-          <AnimatedProposingStatus />
+          {statusOverlay}
         </div>
       ) : (
         <form className="llm-wiki-chat-input" onSubmit={handleSubmit}>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Your commentary..."
+            placeholder={placeholder}
             rows={3}
+            disabled={inputDisabled}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -133,16 +138,10 @@ export const ChatPanel: React.FC<Props> = ({
             }}
           />
           <div className="llm-wiki-chat-actions">
-            <button type="submit" disabled={isLoading || !input.trim()}>
+            <button type="submit" disabled={isLoading || !input.trim() || inputDisabled}>
               Send
             </button>
-            <button
-              type="button"
-              disabled={isLoading || messages.length < 2}
-              onClick={onCommit}
-            >
-              Commit &amp; Propose
-            </button>
+            {actions}
           </div>
         </form>
       )}
