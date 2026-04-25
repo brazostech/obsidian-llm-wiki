@@ -1,0 +1,616 @@
+/* Obsidian-native themed LLM Wiki plugin styles */
+
+.llm-wiki-ingest-app {
+  padding: 12px;
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+  background: var(--background-primary);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Source Selector */
+
+.llm-wiki-source-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.llm-wiki-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.llm-wiki-tabs button {
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-small);
+}
+
+.llm-wiki-tabs button.active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+/* File browser with preview */
+
+.llm-wiki-file-browser {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.llm-wiki-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.llm-wiki-file-item {
+  padding: 8px;
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-small);
+  border: 1px solid transparent;
+}
+
+.llm-wiki-file-item:hover {
+  background: var(--background-secondary);
+}
+
+.llm-wiki-file-item.selected {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.llm-wiki-file-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.llm-wiki-file-preview h4 {
+  margin: 0;
+  font-size: var(--font-ui-small);
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.llm-wiki-preview-text {
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: var(--font-ui-smaller);
+  font-family: var(--font-monospace);
+  opacity: 0.7;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.llm-wiki-ingest-btn {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+  font-weight: 600;
+}
+
+.llm-wiki-ingest-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.llm-wiki-paste textarea,
+.llm-wiki-url input {
+  width: 100%;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 8px;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
+}
+
+.llm-wiki-paste textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+
+.llm-wiki-url input {
+  margin-bottom: 8px;
+}
+
+.llm-wiki-paste button,
+.llm-wiki-url button {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  padding: 6px 16px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+}
+
+.llm-wiki-paste button:disabled,
+.llm-wiki-url button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Chat Panel */
+
+.llm-wiki-chat-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.llm-wiki-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+
+.llm-wiki-back-btn {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--background-modifier-border);
+  padding: 4px 10px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+}
+
+.llm-wiki-back-btn:hover {
+  color: var(--text-normal);
+  background: var(--background-secondary);
+}
+
+.llm-wiki-back-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.llm-wiki-phase-label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.llm-wiki-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 4px;
+}
+
+.llm-wiki-message {
+  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  max-width: 100%;
+  word-wrap: break-word;
+  font-size: var(--font-ui-small);
+  line-height: 1.5;
+}
+
+.llm-wiki-message-user {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  align-self: flex-end;
+}
+
+.llm-wiki-message-assistant {
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  align-self: flex-start;
+}
+
+.llm-wiki-loading {
+  opacity: 0.7;
+}
+
+.llm-wiki-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--background-modifier-border);
+  border-top-color: var(--interactive-accent);
+  border-radius: 50%;
+  animation: llm-wiki-spin 0.6s linear infinite;
+  margin-right: 10px;
+  vertical-align: text-bottom;
+}
+
+@keyframes llm-wiki-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.llm-wiki-chat-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.llm-wiki-chat-input textarea {
+  width: 100%;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 8px;
+  resize: none;
+  font-size: var(--font-ui-small);
+}
+
+.llm-wiki-chat-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.llm-wiki-chat-actions button {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  padding: 6px 16px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+}
+
+.llm-wiki-chat-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Proposal */
+
+.llm-wiki-proposal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.llm-wiki-proposal h3 {
+  margin: 0;
+  font-size: var(--font-ui-medium);
+  font-weight: 600;
+}
+
+.llm-wiki-proposal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.llm-wiki-proposal-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-small);
+}
+
+.llm-wiki-proposal-item input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.llm-wiki-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.llm-wiki-badge-create {
+  background: var(--color-green);
+  color: var(--text-on-accent);
+}
+
+.llm-wiki-badge-update {
+  background: var(--color-yellow);
+  color: var(--text-normal);
+}
+
+.llm-wiki-proposal-path {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.llm-wiki-proposal-desc {
+  flex: 1;
+}
+
+.llm-wiki-proposal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.llm-wiki-proposal-actions button {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  padding: 6px 16px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+}
+
+/* Phase messages */
+
+.llm-wiki-phase {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  font-size: var(--font-ui-medium);
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.llm-wiki-done {
+  flex-direction: column;
+  gap: 16px;
+}
+
+.llm-wiki-done-btn {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  padding: 8px 20px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+  font-weight: 500;
+}
+
+.llm-wiki-done-btn:hover {
+  opacity: 0.9;
+}
+
+.llm-wiki-chat-input-proposing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.llm-wiki-proposing-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+
+.llm-wiki-proposing-text {
+  font-family: var(--font-monospace);
+  min-width: 200px;
+}
+
+/* Progress Steps */
+
+.llm-wiki-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.llm-wiki-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-small);
+}
+
+.llm-wiki-step-icon {
+  font-size: var(--font-ui-small);
+  line-height: 1.4;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+.llm-wiki-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.llm-wiki-step-label {
+  line-height: 1.4;
+}
+
+.llm-wiki-step-detail {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.llm-wiki-step-pending .llm-wiki-step-icon {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.llm-wiki-step-active .llm-wiki-step-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--text-muted);
+  border-top-color: var(--interactive-accent);
+  border-radius: 50%;
+  animation: llm-wiki-spin 0.8s linear infinite;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.llm-wiki-step-complete .llm-wiki-step-icon {
+  color: var(--color-green);
+}
+
+.llm-wiki-step-error .llm-wiki-step-icon {
+  color: var(--color-red);
+}
+
+.llm-wiki-step-error {
+  background: rgba(var(--color-red-rgb), 0.1);
+}
+
+@keyframes llm-wiki-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Markdown-rendered messages */
+
+.llm-wiki-message-markdown {
+  line-height: 1.6;
+}
+
+.llm-wiki-message-markdown p {
+  margin: 0 0 0.6em 0;
+}
+
+.llm-wiki-message-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.llm-wiki-message-markdown h1,
+.llm-wiki-message-markdown h2,
+.llm-wiki-message-markdown h3,
+.llm-wiki-message-markdown h4,
+.llm-wiki-message-markdown h5,
+.llm-wiki-message-markdown h6 {
+  margin: 0.8em 0 0.4em 0;
+  font-weight: 600;
+  font-size: var(--font-ui-small);
+}
+
+.llm-wiki-message-markdown h1 {
+  font-size: var(--font-ui-medium);
+}
+
+.llm-wiki-message-markdown h2 {
+  font-size: calc(var(--font-ui-small) + 1px);
+}
+
+.llm-wiki-message-markdown ul,
+.llm-wiki-message-markdown ol {
+  margin: 0.4em 0;
+  padding-left: 1.5em;
+}
+
+.llm-wiki-message-markdown li {
+  margin: 0.2em 0;
+}
+
+.llm-wiki-message-markdown code {
+  background: var(--background-modifier-form-field);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--font-monospace);
+  font-size: 0.9em;
+}
+
+.llm-wiki-message-markdown pre {
+  background: var(--background-secondary);
+  padding: 8px;
+  border-radius: var(--radius-s);
+  overflow-x: auto;
+  margin: 0.4em 0;
+}
+
+.llm-wiki-message-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.llm-wiki-message-markdown blockquote {
+  margin: 0.4em 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.llm-wiki-message-markdown a {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+
+.llm-wiki-message-markdown a:hover {
+  text-decoration: underline;
+}
+
+.llm-wiki-message-markdown hr {
+  border: none;
+  border-top: 1px solid var(--background-modifier-border);
+  margin: 0.8em 0;
+}
+
+.llm-wiki-message-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.4em 0;
+  font-size: var(--font-ui-smaller);
+}
+
+.llm-wiki-message-markdown th,
+.llm-wiki-message-markdown td {
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  text-align: left;
+}
+
+.llm-wiki-message-markdown th {
+  background: var(--background-secondary);
+  font-weight: 600;
+}

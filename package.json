@@ -1,0 +1,36 @@
+{
+  "name": "obsidian-llm-wiki",
+  "version": "0.1.0",
+  "description": "Obsidian plugin for LLM Wiki ingestion",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs development",
+    "build": "node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "llm",
+    "wiki"
+  ],
+  "author": "Jack",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.25.2",
+    "obsidian": "latest",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.0",
+    "@ai-sdk/openai": "^3.0.0",
+    "@ai-sdk/openai-compatible": "^2.0.41",
+    "ai": "^6.0.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.24.0"
+  }
+}

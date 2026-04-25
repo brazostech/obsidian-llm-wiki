@@ -1,0 +1,37 @@
+import { ItemView, WorkspaceLeaf } from "obsidian";
+import { Root, createRoot } from "react-dom/client";
+import React from "react";
+import LlmWikiPlugin from "../main";
+import { IngestApp } from "../components/IngestApp";
+
+export const VIEW_TYPE_INGEST = "llm-wiki-ingest";
+
+export class IngestView extends ItemView {
+  private root: Root | null = null;
+  private plugin: LlmWikiPlugin;
+
+  constructor(leaf: WorkspaceLeaf, plugin: LlmWikiPlugin) {
+    super(leaf);
+    this.plugin = plugin;
+  }
+
+  getViewType(): string {
+    return VIEW_TYPE_INGEST;
+  }
+
+  getDisplayText(): string {
+    return "LLM Wiki Ingest";
+  }
+
+  async onOpen() {
+    this.root = createRoot(this.contentEl);
+    this.root.render(
+      React.createElement(IngestApp, { plugin: this.plugin })
+    );
+  }
+
+  async onClose() {
+    this.root?.unmount();
+    this.root = null;
+  }
+}
