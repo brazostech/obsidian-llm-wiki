@@ -45,13 +45,13 @@ export class IngestPipeline {
     [K in keyof EventMap]?: Array<(payload: EventMap[K]) => void>;
   } = {};
 
-  constructor(app: App, provider: LanguageModelProvider, settings: LlmWikiSettings) {
+  constructor(app: App, settings: LlmWikiSettings, provider: LanguageModelProvider) {
     this.app = app;
-    this.provider = provider;
     this.rawPath = settings.rawPath;
     this.wikiPath = settings.wikiPath;
     this.indexPath = settings.indexPath;
     this.logPath = settings.logPath;
+    this.provider = provider;
     this.reader = new WikiReader(app, this.rawPath, this.wikiPath);
     this.writer = new WikiWriter(app);
     this.sessionManager = new SessionManager(app);
@@ -155,6 +155,7 @@ export class IngestPipeline {
         role: "assistant",
         content: `I see you've selected **${path}**. What would you like to capture from this source?`,
       });
+      this.emit("error", e);
     } finally {
       this.setLoading(false);
     }
