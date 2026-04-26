@@ -43,7 +43,21 @@ export class SessionManager {
     if (existing instanceof TFile) {
       await this.app.vault.modify(existing, data);
     } else {
-      await this.app.vault.create(path, data);
+      try {
+        await this.app.vault.create(path, data);
+      } catch (e: any) {
+        // File exists on disk but wasn't in vault cache - obtain TFile and modify instead
+        if (e.message?.includes("already exists")) {
+          const file = this.app.vault.getAbstractFileByPath(path);
+          if (file instanceof TFile) {
+            await this.app.vault.modify(file, data);
+          } else {
+            throw e;
+          }
+        } else {
+          throw e;
+        }
+      }
     }
     console.log("[LLM Wiki] Session saved:", session.sourcePath, "messages:", session.messages.length, "phase:", session.phase);
   }

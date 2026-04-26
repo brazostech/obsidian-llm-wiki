@@ -3,7 +3,7 @@ import { Proposal } from "../ai/propose";
 
 interface Props {
   proposal: Proposal;
-  onApply: (actions: Proposal["actions"]) => void;
+  onApply: (actions: Proposal["actions"], fullProposal: Proposal) => void;
   onCancel: () => void;
 }
 
@@ -26,7 +26,7 @@ export const ProposalChecklist: React.FC<Props> = ({
     const approved = actions
       .filter((a) => a.checked)
       .map(({ checked, ...rest }) => rest);
-    onApply(approved);
+    onApply(approved, proposal);
   };
 
   return (

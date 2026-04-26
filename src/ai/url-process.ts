@@ -1,7 +1,7 @@
 import { generateText } from "ai";
-import { createProvider } from "./provider";
+import type { LanguageModelProvider } from "./ai-provider";
 
-const URL_PROCESSING_PROMPT = `You are a content extraction assistant. I will give you raw HTML from a web page.
+export const URL_PROCESSING_PROMPT = `You are a content extraction assistant. I will give you raw HTML from a web page.
 
 Your task:
 1. Extract the main article/content text (ignore navigation, ads, sidebars, footers, scripts, styles)
@@ -15,22 +15,20 @@ Your task:
    - title: the page title
    - description: a 1-2 sentence summary of what this page contains
 
+IMPORTANT: When writing YAML frontmatter values, always double-quote any values that contain colons, URLs (://), or special characters like #. For example, use title: "GitHub - PowerShell/PowerShell" NOT title: GitHub - PowerShell/PowerShell.
+
 Return ONLY the markdown file content. No preamble, no markdown fences around the output.`;
 
 export async function processUrlWithLlm(
+  provider: LanguageModelProvider,
   html: string,
-  url: string,
-  model: string,
-  apiKey: string
+  url: string
 ): Promise<string> {
-  const provider = createProvider(model, apiKey);
-
-  // Truncate HTML if it's enormous — LLMs have context limits
   const truncatedHtml =
     html.length > 150000 ? html.slice(0, 150000) + "\n...[truncated]" : html;
 
   const result = await generateText({
-    model: provider,
+    model: provider.model,
     system: URL_PROCESSING_PROMPT,
     prompt: `URL: ${url}\n\nHTML:\n${truncatedHtml}`,
   });

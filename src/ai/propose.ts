@@ -1,7 +1,8 @@
 import { generateText } from "ai";
 import { z } from "zod";
-import { createProvider } from "./provider";
 import type { CoreMessage } from "ai";
+import type { LanguageModelProvider } from "./ai-provider";
+import { INGEST_PROPOSE_SYSTEM_PROMPT } from "./prompts";
 
 export const ProposalSchema = z.object({
   sourceSummary: z.object({
@@ -38,71 +39,33 @@ CRITICAL RULES:
 
 You are producing a wiki proposal based on a conversation about a source document.
 
-The JSON must have exactly this structure:
+IMPORTANT: When writing YAML frontmatter in markdown content, always double-quote any values that contain colons, URLs, or special characters like #.
 
+The JSON must have exactly this structure:
 {
-  "sourceSummary": {
-    "slug": "kebab-case-slug-from-source-filename",
-    "title": "Human-readable title",
-    "tags": ["tag1", "tag2"]
-  },
-  "actions": [
-    {
-      "type": "CREATE",
-      "path": "wiki/sources/the-slug.md",
-      "description": "One-line summary for checklist",
-      "content": "Full markdown content with YAML frontmatter"
-    },
-    {
-      "type": "CREATE",
-      "path": "wiki/concepts/some-concept.md",
-      "description": "What this concept page covers",
-      "content": "Full markdown with frontmatter"
-    }
-  ],
-  "indexUpdates": [
-    {
-      "section": "Sources",
-      "entry": "- [[sources/the-slug]] — one-line summary"
-    }
-  ],
-  "logEntry": "Created [[sources/the-slug]], [[concepts/some-concept]]"
+  "sourceSummary": { "slug": "kebab-case-slug", "title": "Human-readable title", "tags": ["tag1"] },
+  "actions": [ { "type": "CREATE", "path": "wiki/sources/slug.md", "description": "summary", "content": "full markdown" } ],
+  "indexUpdates": [ { "section": "Sources", "entry": "- [[sources/slug]] — summary" } ],
+  "logEntry": "Created [[sources/slug]]"
 }
 
-For frontmatter in created pages, use:
----
-title: "Page Title"
-tags: ["tag"]
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
-sources:
-  - "[[sources/the-source-slug]]"
----
-
-Use Obsidian wikilinks [[page-slug]] for cross-references.
-
-Example logEntry format:
-- Created [[sources/example-slug]]
-- Created [[concepts/example-concept]]
-- Notes: any gaps or contradictions flagged`;
+IMPORTANT - AVOID DUPLICATE CREATES:
+- Pages marked [CITES THIS SOURCE] already have content from this source. Use "UPDATE" (not "CREATE") for those.`;
 
 export async function generateProposal(
-  model: string,
-  apiKey: string,
+  provider: LanguageModelProvider,
   messages: CoreMessage[]
 ): Promise<Proposal> {
-  const provider = createProvider(model, apiKey);
-
   const history = messages
     .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
     .join("\n\n");
 
-  const prompt = `CONVERSATION HISTORY:\n${history}\n\n---\n\nINSTRUCTION: Based on the above conversation, produce the final wiki proposal.\n\nOutput ONLY a single JSON object matching the schema described in your system prompt.\n\nIf no wiki actions are needed, output empty arrays for actions and indexUpdates, but still include a sourceSummary and logEntry explaining why.`;
+  const prompt = `CONVERSATION HISTORY:\n${history}\n\n---\n\nINSTRUCTION: Based on the above conversation, produce the final wiki proposal.\n\nOutput ONLY a single JSON object.\n\nIf no wiki actions are needed, output empty arrays for actions and indexUpdates.`;
 
   let result;
   try {
     result = await generateText({
-      model: provider,
+      model: provider.model,
       system: PROPOSAL_SYSTEM_PROMPT,
       prompt,
     });

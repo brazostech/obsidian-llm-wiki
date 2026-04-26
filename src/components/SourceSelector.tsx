@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { requestUrl } from "obsidian";
-import { WikiReader } from "../wiki/reader";
-import { WikiWriter } from "../wiki/writer";
-import { processUrlWithLlm } from "../ai/url-process";
 import { ProgressSteps, Step } from "./ProgressSteps";
-import { parseFrontmatter } from "../wiki/frontmatter";
-import { SessionManager } from "../sessions/manager";
+import { createLanguageModelProvider } from "../ai/ai-provider";
+import { SourceIngestion } from "../wiki/source-ingestion";
 import LlmWikiPlugin from "../main";
 
 interface Props {
@@ -27,53 +23,6 @@ interface RecentFile {
   hasSession: boolean;
   messageCount: number;
   lastActive: number | null;
-}
-
-function extractTitleFromRawFrontmatter(content: string): string | null {
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?/);
-  if (!fmMatch) return null;
-  const titleMatch = fmMatch[1].match(/^title:\s*(.+)$/m);
-  if (titleMatch) {
-    let title = titleMatch[1].trim();
-    if (
-      (title.startsWith('"') && title.endsWith('"')) ||
-      (title.startsWith("'") && title.endsWith("'"))
-    ) {
-      title = title.slice(1, -1);
-    }
-    return title;
-  }
-  return null;
-}
-
-function extractTitle(content: string, basename: string): string {
-  try {
-    const { frontmatter, body } = parseFrontmatter(content);
-    if (frontmatter.title && typeof frontmatter.title === "string") {
-      return frontmatter.title;
-    }
-    const h1Match = body.match(/^#\s+(.+)$/m);
-    if (h1Match) {
-      return h1Match[1].trim();
-    }
-  } catch (e: any) {
-    console.warn(
-      "[LLM Wiki] Strict frontmatter parse failed, trying regex fallback:",
-      e.message
-    );
-  }
-
-  const rawTitle = extractTitleFromRawFrontmatter(content);
-  if (rawTitle) {
-    return rawTitle;
-  }
-
-  const h1Match = content.match(/^#\s+(.+)$/m);
-  if (h1Match) {
-    return h1Match[1].trim();
-  }
-
-  return basename;
 }
 
 function formatTimeAgo(timestamp: number): string {
@@ -101,6 +50,18 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect, refreshKey =
   const [urlSteps, setUrlSteps] = useState<Step[]>(DEFAULT_URL_STEPS);
   const [isLoadingFiles, setIsLoadingFiles] = useState(true);
 
+  const sourceIngestion = useRef(
+    new SourceIngestion(
+      plugin.app,
+      plugin.settings.rawPath,
+      plugin.settings.wikiPath,
+      createLanguageModelProvider({
+        model: plugin.settings.model,
+        apiKey: plugin.settings.zenApiKey,
+      })
+    )
+  );
+
   // Keep a ref to the latest onSelect so setTimeout closures are never stale
   const onSelectRef = useRef(onSelect);
   useEffect(() => {
@@ -110,29 +71,8 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect, refreshKey =
   useEffect(() => {
     const loadRecent = async () => {
       try {
-        const reader = new WikiReader(
-          plugin.app,
-          plugin.settings.rawPath,
-          plugin.settings.wikiPath
-        );
-        const sessionManager = new SessionManager(plugin.app);
-        const recent = await reader.listRecentRawFiles(5);
-        const enriched = await Promise.all(
-          recent.map(async (f) => {
-            const content = (await reader.readFile(f.path)) || "";
-            const title = extractTitle(content, f.basename);
-            const session = await sessionManager.load(f.path);
-            return {
-              path: f.path,
-              title,
-              filename: f.basename,
-              hasSession: !!session,
-              messageCount: session?.messages?.length || 0,
-              lastActive: session?.updatedAt || null,
-            };
-          })
-        );
-        setRecentFiles(enriched);
+        const files = await sourceIngestion.current.listRecentFiles(5);
+        setRecentFiles(files);
       } catch (e: any) {
         console.error("[LLM Wiki] Failed to load recent files:", e);
       } finally {
@@ -144,49 +84,32 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect, refreshKey =
 
   const handleSelectFile = async (path: string) => {
     setSelectedFile(path);
-    const reader = new WikiReader(
-      plugin.app,
-      plugin.settings.rawPath,
-      plugin.settings.wikiPath
-    );
-    const sessionManager = new SessionManager(plugin.app);
-    const content = await reader.readFile(path);
-    const session = await sessionManager.load(path);
-    if (session) {
+    const result = await sourceIngestion.current.selectFile(path);
+    if (result.hasSession) {
       setSelectedHasSession(true);
-      setSelectedMessageCount(session.messages?.length || 0);
-      setSelectedLastActive(session.updatedAt || null);
+      setSelectedMessageCount(result.messageCount);
+      setSelectedLastActive(result.lastActive);
       setSelectedPreview("");
     } else {
       setSelectedHasSession(false);
       setSelectedMessageCount(0);
       setSelectedLastActive(null);
-      if (content !== null) {
-        setSelectedPreview(content.slice(0, 500));
+      if (result.content) {
+        setSelectedPreview(result.content.slice(0, 500));
       }
     }
   };
 
   const handleIngestSelected = async () => {
     if (!selectedFile) return;
-    const reader = new WikiReader(
-      plugin.app,
-      plugin.settings.rawPath,
-      plugin.settings.wikiPath
-    );
-    const content = await reader.readFile(selectedFile);
-    if (content !== null) {
-      onSelect(selectedFile, content);
-    }
+    const result = await sourceIngestion.current.selectFile(selectedFile);
+    onSelect(result.path, result.content);
   };
 
   const handlePaste = async () => {
     if (!pasteContent.trim()) return;
-    const slug = `pasted-${Date.now()}`;
-    const path = `${plugin.settings.rawPath}/${slug}.md`;
-    const writer = new WikiWriter(plugin.app);
-    await writer.createFile(path, pasteContent);
-    onSelect(path, pasteContent);
+    const result = await sourceIngestion.current.pasteContent(pasteContent);
+    onSelect(result.path, result.content);
   };
 
   const updateStep = (id: string, status: Step["status"], detail?: string) => {
@@ -204,40 +127,13 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect, refreshKey =
 
     try {
       updateStep("fetch", "active");
-      const response = await requestUrl({ url: url.trim(), method: "GET" });
-      const html = response.text;
-      updateStep(
-        "fetch",
-        "complete",
-        `${html.length.toLocaleString()} chars received`
-      );
-
-      updateStep("process", "active");
-      const markdown = await processUrlWithLlm(
-        html,
-        url.trim(),
-        plugin.settings.model,
-        plugin.settings.zenApiKey
-      );
-      updateStep(
-        "process",
-        "complete",
-        `${markdown.length.toLocaleString()} chars extracted`
-      );
-
-      updateStep("save", "active");
-      const slug = `fetched-${Date.now()}`;
-      const path = `${plugin.settings.rawPath}/${slug}.md`;
-      const writer = new WikiWriter(plugin.app);
-      await writer.createFile(path, markdown);
-      updateStep("save", "complete", path);
-
-      // Transition immediately to ingestion chat
-      onSelectRef.current(path, markdown);
+      const result = await sourceIngestion.current.fetchUrl(url.trim());
+      updateStep("fetch", "complete", `${result.content.length.toLocaleString()} chars fetched`);
+      updateStep("process", "complete", "Processed with LLM");
+      updateStep("save", "complete", result.path);
+      onSelectRef.current(result.path, result.content);
     } catch (e: any) {
-      const failedStep =
-        urlSteps.find((s) => s.status === "active")?.id || "fetch";
-      updateStep(failedStep, "error", e.message);
+      updateStep("fetch", "error", e.message);
     } finally {
       setIsLoading(false);
     }
@@ -315,7 +211,7 @@ export const SourceSelector: React.FC<Props> = ({ plugin, onSelect, refreshKey =
                 onClick={handleIngestSelected}
                 disabled={isLoading}
               >
-                {selectedFileData?.hasSession ? "Discuss & Update" : "Ingest this source"}
+                {selectedFileData?.hasSession ? "Update / Modify" : "Ingest this source"}
               </button>
             </div>
           )}

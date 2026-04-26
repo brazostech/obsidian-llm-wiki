@@ -135,6 +135,14 @@ Obsidian's Electron renderer blocks `fetch()` to `opencode.ai` (no `Access-Contr
 
 **Why not `Output.object()`?** `ai-sdk`'s `Output.object()` uses provider-native structured output (OpenAI JSON mode, Anthropic tool use). Non-OpenAI models through `openai-compatible` return HTTP 401 or "Failed to fetch" because the endpoint doesn't support those APIs. Hardcoded prompts + manual parsing is the only reliable cross-provider approach.
 
+**Wiki Context** (`ai/wikiContext.ts`)
+
+- `buildWikiContext()`: reads all wiki pages, finds those that cite the current source (via `sources:` frontmatter), and formats a context block
+- Injected as a synthetic "assistant" message between the source and the conversation history in `buildLlmMessages()`
+- The context block lists all wiki pages with their paths and titles, and marks pages that cite the current source with `[CITES THIS SOURCE]`
+- Both the chat system prompt and the proposal system prompt instruct the LLM to use UPDATE (not CREATE) for existing pages
+- This prevents duplicate CREATEs when re-ingesting a source that already has wiki pages
+
 **URL processing** (`ai/url-process.ts`)
 
 - `processUrlWithLlm()`: sends raw HTML + URL to the LLM with a system prompt instructing extraction + markdown conversion + frontmatter generation
@@ -202,12 +210,12 @@ The esbuild config bundles React, ai-sdk, and Zod into a single `main.js`. Exter
    - Appending to `sources:` frontmatter list without losing existing entries
    - Using `> [!contradiction]` callouts when new info conflicts
 
-3. **Session-aware re-ingestion.** When resuming a session, the LLM should know what wiki pages already exist and what was previously created. Currently it only sees the source + chat history, so it may propose duplicate CREATEs. Need to enrich the prompt with:
-   - Existing wiki pages that cite this source (from frontmatter `sources:`)
-   - Prior log entries for this source
-   - Current content of related pages (or at least titles + summaries)
+3. **Source size limits.** Very large files (>200KB) should be chunked or summarized before being sent to the LLM. The greeting already truncates to 8KB, but subsequent chat turns send the FULL source every time. This is expensive and slow.
 
-4. **Source size limits.** Very large files (>200KB) should be chunked or summarized before being sent to the LLM. The greeting already truncates to 8KB, but subsequent chat turns send the FULL source every time. This is expensive and slow.
+4. **Wiki context enrichment.** (Partially done) The LLM now receives a list of existing wiki pages and which ones cite the current source via `buildWikiContext()`. Still needed:
+   - Include the actual content of pages marked [CITES THIS SOURCE] so the LLM can produce accurate UPDATEs
+   - Include prior log entries for this source
+   - Cap the total context size to avoid overwhelming smaller models
 
 ### Medium Priority
 

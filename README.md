@@ -94,7 +94,7 @@ src/
 4. **UPDATE actions overwrite entire files.** The LLM generates the full file content for UPDATE actions, replacing the existing page. There's no "append" or "patch" semantics — the LLM must include all existing content it wants to preserve.
 5. **Query and Lint are placeholders.** The UI sections exist but are not yet functional.
 6. **Large source documents slow the initial greeting.** The first LLM call on entering CHAT includes the full source content. For very large files (>100KB), this can take 10-30 seconds before the greeting appears.
-7. **Session resume lacks wiki awareness.** When resuming a session, the LLM only sees the source + conversation history, not what wiki pages were previously created. It may propose duplicate CREATEs instead of UPDATEs.
+7. **Session resume wiki awareness is approximate.** The LLM receives a list of existing wiki pages and which ones cite the current source, but does not see the full content of existing pages. It may still occasionally propose suboptimal UPDATEs.
 
 ## Installation
 
