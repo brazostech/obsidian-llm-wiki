@@ -7,8 +7,8 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     exclude: ["node_modules/**", "dist/**"],
-    alias: [
-      { find: "obsidian", replacement: path.resolve(__dirname, "src/test/utils/obsidian-shim.d.ts") },
+      alias: [
+      { find: "obsidian", replacement: path.resolve(__dirname, "src/test/utils/obsidian-shim.ts") },
     ],
   },
 });

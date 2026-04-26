@@ -1,8 +1,6 @@
-import { generateText } from "ai";
 import { z } from "zod";
 import type { CoreMessage } from "ai";
 import type { LanguageModelProvider } from "./ai-provider";
-import { INGEST_PROPOSE_SYSTEM_PROMPT } from "./prompts";
 
 export const ProposalSchema = z.object({
   sourceSummary: z.object({
@@ -29,52 +27,19 @@ export const ProposalSchema = z.object({
 
 export type Proposal = z.infer<typeof ProposalSchema>;
 
-const PROPOSAL_SYSTEM_PROMPT = `You are a structured data generator. Your ONLY output must be a single valid JSON object.
-
-CRITICAL RULES:
-- Output ONLY raw JSON. No markdown code fences. No preamble. No explanation. No conversation.
-- The JSON must be parseable by JSON.parse() without any modification.
-- Do not wrap the output in triple backticks.
-- Do not include any text before or after the JSON object.
-
-You are producing a wiki proposal based on a conversation about a source document.
-
-IMPORTANT: When writing YAML frontmatter in markdown content, always double-quote any values that contain colons, URLs, or special characters like #.
-
-The JSON must have exactly this structure:
-{
-  "sourceSummary": { "slug": "kebab-case-slug", "title": "Human-readable title", "tags": ["tag1"] },
-  "actions": [ { "type": "CREATE", "path": "wiki/sources/slug.md", "description": "summary", "content": "full markdown" } ],
-  "indexUpdates": [ { "section": "Sources", "entry": "- [[sources/slug]] — summary" } ],
-  "logEntry": "Created [[sources/slug]]"
-}
-
-IMPORTANT - AVOID DUPLICATE CREATES:
-- Pages marked [CITES THIS SOURCE] already have content from this source. Use "UPDATE" (not "CREATE") for those.`;
-
 export async function generateProposal(
   provider: LanguageModelProvider,
   messages: CoreMessage[]
 ): Promise<Proposal> {
-  const history = messages
-    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
-    .join("\n\n");
-
-  const prompt = `CONVERSATION HISTORY:\n${history}\n\n---\n\nINSTRUCTION: Based on the above conversation, produce the final wiki proposal.\n\nOutput ONLY a single JSON object.\n\nIf no wiki actions are needed, output empty arrays for actions and indexUpdates.`;
-
-  let result;
+  let text: string;
   try {
-    result = await generateText({
-      model: provider.model,
-      system: PROPOSAL_SYSTEM_PROMPT,
-      prompt,
-    });
+    text = await provider.propose(messages);
   } catch (e: any) {
-    console.error("[LLM Wiki] generateText failed:", e);
-    throw new Error(`generateText failed: ${e.message}`);
+    console.error("[LLM Wiki] provider.propose failed:", e);
+    throw new Error(`Proposal generation failed: ${e.message}`);
   }
 
-  const text = result.text.trim();
+  text = text.trim();
   let jsonText = text;
 
   // Strip markdown code fences if present

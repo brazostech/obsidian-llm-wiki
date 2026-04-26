@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import type { CoreMessage, LanguageModel } from "ai";
 import { createProvider } from "./provider";
-import { INGEST_CHAT_SYSTEM_PROMPT, GREETING_PROMPT, INGEST_PROPOSE_SYSTEM_PROMPT } from "./prompts";
+import { INGEST_CHAT_SYSTEM_PROMPT, GREETING_PROMPT, PROPOSAL_SYSTEM_PROMPT } from "./prompts";
 import { URL_PROCESSING_PROMPT } from "./url-process";
 
 export interface LanguageModelProvider {
@@ -48,7 +48,7 @@ export class AiLanguageModelProvider implements LanguageModelProvider {
     console.log("[LLM Wiki] propose with", messages.length, "messages");
     const result = await generateText({
       model: this.model,
-      system: INGEST_PROPOSE_SYSTEM_PROMPT,
+      system: PROPOSAL_SYSTEM_PROMPT,
       messages,
     });
     return result.text;

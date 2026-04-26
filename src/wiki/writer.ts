@@ -45,7 +45,7 @@ export class WikiWriter {
       const existing = await this.app.vault.read(file);
       await this.app.vault.modify(file, existing + "\n" + content);
     } else {
-      throw new Error(`File not found: ${normalized}`);
+      await this.createFile(normalized, content);
     }
   }
 

@@ -36,7 +36,6 @@ export async function buildWikiContext(
   const lines: string[] = [`EXISTING WIKI (${allPages.length} pages):`];
   const citingPaths = new Set(citingPages.map((p) => p.path));
 
-  let totalContentSize = 0;
   const citingContentLines: string[] = [];
 
   for (const page of citingPages) {
@@ -47,11 +46,10 @@ export async function buildWikiContext(
         const content = await reader.readFile(page.path);
         if (content) {
           const truncated =
-            content.length > opts.maxPageSize
-              ? content.slice(0, opts.maxPageSize) + "\n\n... [truncated]"
+            content.length > opts.maxPageSize!
+              ? content.slice(0, opts.maxPageSize!) + "\n\n... [truncated]"
               : content;
           citingContentLines.push(`\n--- ${page.path} ---\n${truncated}\n---`);
-          totalContentSize += truncated.length;
         }
       } catch (e) {
         lines.push(`    (could not read full content)`);
@@ -64,11 +62,12 @@ export async function buildWikiContext(
   }
 
   if (opts.includeFullContent && citingContentLines.length > 0) {
-    let keptContent: string[] = [];
+    let runningTotal = 0;
+    const keptContent: string[] = [];
     for (const content of citingContentLines) {
-      if (totalContentSize + content.length <= opts.maxTotalSize) {
+      if (runningTotal + content.length <= opts.maxTotalSize!) {
         keptContent.push(content);
-        totalContentSize += content.length;
+        runningTotal += content.length;
       }
     }
     lines.push(...keptContent);

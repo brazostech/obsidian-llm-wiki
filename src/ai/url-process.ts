@@ -1,4 +1,3 @@
-import { generateText } from "ai";
 import type { LanguageModelProvider } from "./ai-provider";
 
 export const URL_PROCESSING_PROMPT = `You are a content extraction assistant. I will give you raw HTML from a web page.
@@ -24,14 +23,5 @@ export async function processUrlWithLlm(
   html: string,
   url: string
 ): Promise<string> {
-  const truncatedHtml =
-    html.length > 150000 ? html.slice(0, 150000) + "\n...[truncated]" : html;
-
-  const result = await generateText({
-    model: provider.model,
-    system: URL_PROCESSING_PROMPT,
-    prompt: `URL: ${url}\n\nHTML:\n${truncatedHtml}`,
-  });
-
-  return result.text;
+  return provider.processUrl(html, url);
 }

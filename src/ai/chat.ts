@@ -1,5 +1,3 @@
-import { generateText } from "ai";
-import { INGEST_CHAT_SYSTEM_PROMPT, GREETING_PROMPT } from "./prompts";
 import type { CoreMessage } from "ai";
 import type { LanguageModelProvider } from "./ai-provider";
 
@@ -8,23 +6,19 @@ export async function chatResponse(
   messages: CoreMessage[]
 ): Promise<string> {
   console.log(
-    "[LLM Wiki] generateText with",
+    "[LLM Wiki] chatResponse with",
     messages.length,
     "messages"
   );
 
-  const result = await generateText({
-    model: provider.model,
-    system: INGEST_CHAT_SYSTEM_PROMPT,
-    messages,
-  });
+  const text = await provider.chat(messages);
 
   console.log(
-    "[LLM Wiki] generateText returned",
-    result.text.length,
+    "[LLM Wiki] chatResponse returned",
+    text.length,
     "chars"
   );
-  return result.text;
+  return text;
 }
 
 export async function generateGreeting(
@@ -32,18 +26,14 @@ export async function generateGreeting(
   sourcePath: string,
   sourceContent: string
 ): Promise<string> {
-  console.log("[LLM Wiki] Generating greeting for", sourcePath);
+  console.log("[LLM Wiki] generateGreeting for", sourcePath);
 
-  const result = await generateText({
-    model: provider.model,
-    system: GREETING_PROMPT,
-    prompt: `Source: ${sourcePath}\n\n${sourceContent.slice(0, 8000)}`,
-  });
+  const text = await provider.greet(sourcePath, sourceContent);
 
   console.log(
-    "[LLM Wiki] Greeting returned",
-    result.text.length,
+    "[LLM Wiki] generateGreeting returned",
+    text.length,
     "chars"
   );
-  return result.text;
+  return text;
 }
