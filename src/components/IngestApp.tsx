@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import LlmWikiPlugin from "main";
+import LlmWikiPlugin from "../main";
 import { IngestPhase, ChatMessage } from "../types";
 import { Proposal } from "../ai/propose";
 import { SourceSelector } from "./SourceSelector";
@@ -23,18 +23,23 @@ export const IngestApp: React.FC<Props> = ({ plugin, onEnterChat, onBackToOvervi
   const [refreshKey, setRefreshKey] = useState(0);
 
   const pipelineRef = useRef<IngestPipeline | null>(null);
+  const onEnterChatRef = useRef(onEnterChat);
+  const onBackToOverviewRef = useRef(onBackToOverview);
+
+  onEnterChatRef.current = onEnterChat;
+  onBackToOverviewRef.current = onBackToOverview;
 
   useEffect(() => {
     const provider = createLanguageModelProvider({
       model: plugin.settings.model,
       apiKey: plugin.settings.zenApiKey,
     });
-    const pipeline = new IngestPipeline(plugin.app, plugin.settings, provider);
+    const pipeline = new IngestPipeline(plugin.app, provider, plugin.settings);
 
     pipeline.on("phaseChange", (p) => {
       setPhase(p);
       if (p === "CHAT") {
-        onEnterChat?.();
+        onEnterChatRef.current?.();
       }
     });
     pipeline.on("message", () => {
@@ -56,17 +61,20 @@ export const IngestApp: React.FC<Props> = ({ plugin, onEnterChat, onBackToOvervi
     return () => {
       // No explicit cleanup needed for pipeline
     };
-  }, [plugin, onEnterChat]);
+  }, [plugin]);
 
   const handleBackToSelect = useCallback(() => {
     pipelineRef.current?.reset();
+    setMessages([]);
+    setProposal(null);
     setRefreshKey((k) => k + 1);
-    onBackToOverview?.();
-  }, [onBackToOverview]);
+    onBackToOverviewRef.current?.();
+  }, []);
 
   const handleSourceSelected = useCallback(
-    async (path: string, _content: string) => {
-      await pipelineRef.current?.selectSource(path);
+    async (path: string, content: string) => {
+      setMessages([]);
+      await pipelineRef.current?.selectSource(path, content);
     },
     []
   );
